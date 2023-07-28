@@ -28,25 +28,33 @@ app.enable('trust proxy');
 
 app.post('/api/fetchStockData', async (req, res) => {
     const { symbol, date } = req.body;
-    if(symbol && date) {
+    
+    if (!symbol || !date) {
+        return res.status(400).json({ error: "Required fields are not provided." });
+    }
+
+    try {
         const apikey = process.env.APIKEY;
-        await axios.get(`https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${date}/${date}?adjusted=true&apiKey=${apikey}`)
-            .then((response) => {
-                const stockDetail = {
-                    Open: response?.data?.results?.[0]?.o,
-                    Close: response?.data?.results?.[0]?.c,
-                    High: response?.data?.results?.[0]?.h,
-                    Low: response?.data?.results?.[0]?.l,
-                    Volume: response?.data?.results?.[0]?.v
-                }
-                return res.status(200).json({ stockDetail });
-            })
-            .catch((error) => {
-                console.log("error",error.response.data);
-                return res.status(500).json({ error: error.response.data });
-            })
-    } else {
-        return res.status(400).json({ error: "required field is not provided." });
+        const response = await axios.get(`https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${date}/${date}?adjusted=true&apiKey=${apikey}`);
+        
+        const stockData = response?.data?.results?.[0];
+
+        if (!stockData) {
+            return res.status(404).json({ error: "Stock data not found for the given symbol and date." });
+        }
+
+        const stockDetail = {
+            Open: stockData.o,
+            Close: stockData.c,
+            High: stockData.h,
+            Low: stockData.l,
+            Volume: stockData.v
+        };
+        
+        return res.status(200).json({ stockDetail });
+    } catch (error) {
+        console.log("error", error.response ? error.response.data : error.message);
+        return res.status(500).json({ error: "An error occurred while fetching stock data." });
     }
 });
 
